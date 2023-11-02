@@ -1,5 +1,9 @@
+# THIS IS COMPLETELY UNSUPPORTED. DON'T EVEN THINK OF RED HAT SUPPORT WHEN YOU FOLLOW THESE INSTRUCTIONS.
+
+
 # Prerequisites
 
+You have a Raspberry Pi 4 and an SDCard with 32 GiB for the root partition and another 64 GiB as storage for PVs.
 You have an access.redhat.com account, an OpenShift or Red Hat Device Edge Subscription and can access your pull secret.
 
 # Provision Fedora IOT
