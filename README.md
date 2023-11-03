@@ -1,20 +1,64 @@
-# THIS IS COMPLETELY UNSUPPORTED. DON'T EVEN THINK OF RED HAT SUPPORT WHEN YOU FOLLOW THESE INSTRUCTIONS.
+# MicroShift on Fedora IoT 38
+
+This guide will show you how to run the newly GA'ed bits of MicroShift on a Raspberry Pi 4 using 
+Fedora IoT 38. It can announce routes via mDNS so hosting applications in an mDNS aware LAN is a breeze.
+
+**THIS IS COMPLETELY UNSUPPORTED. DON'T EVEN THINK OF RED HAT SUPPORT WHEN YOU FOLLOW THESE INSTRUCTIONS.**
+
+## Motivation
+
+My [home automation setup](https://github.com/wrichter/homeautomation) is based on an [older install of MicroShift on a Raspberry Pi 4](https://www.opensourcerers.org/2022/01/17/openshift-on-raspberry-pi-4/). This hardware is close to ideal because it combines a small form factor which makes it fit my switchbox with GPIO ports that allow me to integrate additional sensors.
+
+Recently I managed to fry the SDCard through repeated short circuits (yes, I was testing something). This is where the idea of a declarative configuration shone: after setting up MicroShift again based on the old instructions, I was able to deploy all applications & their configurations from my repository. I was also able to mount the old SDCard filesystem in a read-only fashion and copy all data over, effectively re-creating the complete state of my setup.
+
+At the same time it felt silly to continue to run old versions when a GA'ed version of MicroShift is now available. This guide shows how to set up this more modern version on Fedora IoT 38.
+
+## Prerequisites
+
+You have a Raspberry Pi 4 with [>2GB of RAM and an SDCard with >10 GiB for the root partition](https://access.redhat.com/documentation/en-us/red_hat_build_of_microshift/4.14/html/installing/microshift-install-rpm#microshift-install-system-requirements_microshift-install-rpm) and additional space as storage for PVs (this guide uses a 128GB SDCard). 
+
+Note that the SDCard Interface on a Raspberry Pi is comparably slow, if you are interested in faster IO speeds, use a storage device attached via USB or similar. For this use case, I valued simplicity over performance and have everything running from the SDCard slot.
+
+You have an access.redhat.com account, an OpenShift or Red Hat Device Edge Subscription and can access your [OpenShift pull secret](https://console.redhat.com/openshift/install/pull-secret).
+
+### Provision Fedora IOT 38
+
+[Create an SDCard with a bootable Fedora IOT 38 image](https://docs.fedoraproject.org/en-US/iot/physical-device-setup/#_create_a_bootable_sd_card). There are multiple ways to do this - on MacOS, I used
+the Raspberry Pi Imager application to write the image to the SDCard, and configured the SSH key(s) on first boot using the [zezere service](https://docs.fedoraproject.org/en-US/iot/ignition/) provided by the Fedora project.
+
+Once the device is fully booted, you should be able to log in as root via ssh.
+
+### Download Microshift packages
+Download the following RPMs from https://access.redhat.com/downloads/content/package-browser . You can do this
+on the Raspberry Pi by copying the download links and using `curl -O`.
+* cri-o
+* cri-tools
+* crun
+* jansson
+* microshift
+* microshift-greenboot
+* microshift-networking
+* microshift-selinux
+* openshift-clients
+* openvswitch-selinux-extra-policy
+* openvswitch3.1
+* NetworkManager
+* NetworkManager-libnm
+* NetworkManager-ovs
+* NetworkManager-wwan
+* NetworkManager-wifi
+
+The `microshift-*`, `cri*`, `crun`, `openvswitch*` packages make up MicroShift. They pull in `NetworkManager*` as dependency, which in turn requires the `jansson` libarary. `openshift-clients` provides the CLI tools to interface with MicroShift.
 
 
-# Prerequisites
+## Prepare Fedora IoT and install MicroShift rpms
 
-You have a Raspberry Pi 4 and an SDCard with 32 GiB for the root partition and another 64 GiB as storage for PVs.
-You have an access.redhat.com account, an OpenShift or Red Hat Device Edge Subscription and can access your pull secret.
+We will need to make some adjustments to be able to install MicroShift, such as preparing the filesystem layout, configuring hostname and time zone and updating the system.
 
-# Provision Fedora IOT
+### Grow the root partition
 
-Write the Fedora IOT image to the SD Card and configure your SSH key on first boot using the zezere service:
-
-https://docs.fedoraproject.org/en-US/iot/ignition/
-
-
-# Prepare MicroShift
-## Grow root partition
+In order to be able to host the additional rpms and have some room to breathe, 
+we'll extend the root partition to 32 GiB.
 
 ```console
 # parted /dev/mmcblk0 resizepart 3 32GiB
@@ -31,12 +75,14 @@ resize2fs 1.46.5 (30-Dec-2021)
 Filesystem at /dev/mmcblk0p3 is mounted on /sysroot; on-line resizing required
 old_desc_blocks = 1, new_desc_blocks = 4
 The filesystem on /dev/mmcblk0p3 is now 7997952 (4k) blocks long.
-
 ``` 
 
-## Prepare RHEL VG
+### Prepare RHEL volume group
 
-```
+MicroShift assumes an LVM volume group named "rhel" to host persistent volumes using the topolvm storage provider.
+This volume group will be hosted on an extended partition.
+
+```console
 # parted /dev/mmcblk0 mkpart extended 32GiB 128GB
 Information: You may need to update /etc/fstab.
 
@@ -54,7 +100,10 @@ Information: You may need to update /etc/fstab.
   Volume group "rhel" successfully created
 ```
 
-## Update and Configure System & install mDNS
+### Update and Configure System & install mDNS
+
+rpm-ostree is the image-based deployment mechanism used by Fedora IoT. It requires you to reboot the system to make package installations visible. Two ostrees are maintained by default at the same time. This allows you to roll back your device to a previously known good configuration in case a new setup is broken.
+
 ```console
 # rpm-ostree update
 ⠈ Receiving objects; 99% (11112/11125) 5.3 MB/s 465.1 MB                                                                           1925 metadata, 9252 content objects fetched; 457581 KiB transferred in 93 seconds; 1.2 GB content written
@@ -74,32 +123,22 @@ Upgraded:
 # systemctl reboot
 ``` 
 
-## Enable mDNS 
+### Enable mDNS 
+
+After reboot, log back in and activate the mMDNS service.
 
 ```console
 # systemctl enable --now avahi-daemon.service
 ```
 
-## Download Microshift packages
-Download the following RPMs from https://access.redhat.com/downloads/content/package-browser
-* cri-o
-* cri-tools
-* crun
-* microshift
-* microshift-greenboot
-* microshift-networking
-* microshift-selinux
-* openshift-clients
-* openvswitch-selinux-extra-policy
-* openvswitch3.1
-* NetworkManager
-* NetworkManager-libnm
-* NetworkManager-ovs
-* NetworkManager-wwan
-* NetworkManager-wifi
 
-## install MicroShift packages
-``` console
+### Install MicroShift packages
+
+We will install the MicroShift packages in two steps - first we overlay existing packages from the Fedora IoT ostree with the ones downloaded earlier. Then we will install the remaining packages.
+
+**At this point it is a good idea to mention again that the resulting setup will be completely unsupported.**
+
+```console
 # ls
 NetworkManager-1.44.0-3.el9.aarch64.rpm
 NetworkManager-libnm-1.44.0-3.el9.aarch64.rpm
@@ -127,7 +166,8 @@ openvswitch3.1-3.1.0-40.el9fdp.aarch64.rpm
 # systemctl reboot 
 ```
 
-Once the system comes back up, verify the ostree:
+Once the system comes back up, log in again and verify the ostree:
+
 ```console
 # rpm-ostree status
 State: idle
@@ -145,9 +185,13 @@ Deployments:
 [...]
 ```
 
-## Download OpenShift Pull Secret & configure cri-o
+## Configure and start MicroShift
 
-Download your pull secret from https://console.redhat.com/openshift/install/pull-secret and store it as `~/openshift-pull-secret`
+At this point, we pretty much just have to follow the [MicroShift installation instructions](https://access.redhat.com/documentation/en-us/red_hat_build_of_microshift/4.14/html/installing/microshift-install-rpm#installing-microshift-from-rpm-package_microshift-install-rpm) from step 3 onwards.
+
+### Download OpenShift Pull Secret & configure cri-o
+
+Download your pull secret from [https://console.redhat.com/openshift/install/pull-secret] and store it as `~/openshift-pull-secret`
 
 ```console
 # ls ~/openshift-pull-secret
@@ -160,7 +204,9 @@ Download your pull secret from https://console.redhat.com/openshift/install/pull
 # chmod 600 /etc/crio/openshift-pull-secret
 ```
 
-## configure firewall
+### Configure firewall
+
+Open the mandatory firewall ports.
 
 ```console
 # firewall-cmd --permanent --zone=trusted --add-source=10.42.0.0/16
@@ -173,21 +219,43 @@ success
 success
 ```
 
-# Use MicroShift
+### Enable and start MicroShift
 
-## enable & start microshift
+Now you can enable and start MicroShift. Give it some time to pull all required pods & start up properly.
+In case startup fails, disable MicroShift before rebooting - otherwise the greenboot health checks will identify a problem on the next reboot, and will roll back to the previously known good configuration.
+
 ```console
 # systemctl enable --now microshift
+
+# systemctl status microshift
+● microshift.service - MicroShift
+     Loaded: loaded (/usr/lib/systemd/system/microshift.service; enabled; preset: disabled)
+    Drop-In: /usr/lib/systemd/system/service.d
+             └─10-timeout-abort.conf
+     Active: active (running) since Thu 2023-11-02 22:22:40 CET; 10h ago
+   Main PID: 1525 (microshift)
+      Tasks: 16 (limit: 4160)
+     Memory: 580.1M
+        CPU: 1h 54min 41.851s
+     CGroup: /system.slice/microshift.service
+             └─1525 microshift run
+
+Nov 03 09:12:28 microshift-new.local microshift[1525]: kubelet I1103 09:12:28.694006    1525 kubelet.go:2457] "SyncLoop (PLEG): event for pod" pod="openshift-dns/dns-default-qcvpv" event={"ID":"e86bfc5a-7fb9-425e-ab9b-1ecef66f6996","Type":"ContainerDied","Data":"6514c6574172b44b036011f8a97a37d932066def9d98075a1b30d6b8c8e7977b"}
+Nov 03 09:12:28 microshift-new.local microshift[1525]: kubelet I1103 09:12:28.694223    1525 scope.go:115] "RemoveContainer" containerID="080aa0f9ff8c69165d7d464abb13afd7a6236bd52aedaf3eef61cc5e3b6ef158"
+[...]
 ```
 
-## copy access credentials
+### Copy access credentials
+
+Upon start, microshift creates a kubeconfig configuration file that allows administrative access. Copy it into your home directory to use via the CLI.
+
 ```console
 # mkdir -p ~/.kube/
 # cat /var/lib/microshift/resources/kubeadmin/kubeconfig > ~/.kube/config
 # chmod go-r ~/.kube/config
 ```
 
-## test client access
+### Test client access
 
 `oc status` and `oc project` will throw an error, since MicroShift does not know the project API objects. This is expected. You can test the CLI access as follows:
 
@@ -199,11 +267,11 @@ success
 [...]
 ```
 
-# Test Application
+## Test the Setup using a sample Application
 
-We will use Node Red to test the MicroShift platform
+We will use [Node Red](https://nodered.org/) as a sample application to test the MicroShift platform. It starts on an unprivileged port (doesn't have to run as root) and can use a persisten volume to store its flows.
 
-## deploy sample application (Node-Red)
+### Deploy sample application
 
 This sample application deploys Node-Red and creates a route that is advertised via mDNS. 
 
@@ -313,11 +381,16 @@ spec:
     weight: 100
   wildcardPolicy: None
 EOF
+
 persistentvolumeclaim/node-red-pv-claim created
 deployment.apps/node-red created
 service/node-red created
 route.route.openshift.io/node-red created
+```
 
+Once the application is deployed, you should be able to access it from the CLI or your mDNS aware browser.
+
+```console
 # curl http://nodered.local/
 <!DOCTYPE html>
 <html>
@@ -326,7 +399,10 @@ route.route.openshift.io/node-red created
 [...]
 ```
 
-## inspect sample application artifacts
+### Review storage artifacts
+
+The topolvm storage provider creates LVM logical volumes for each Kubernetes PV that is created.
+
 ```console
 # kubectl describe pvc node-red-pv-claim
 Name:          node-red-pv-claim
@@ -362,7 +438,14 @@ pvc-745b7227-76b0-4018-8474-f77238609f41 d2268877-8d1d-4fb0-b08d-bef055496bc5
 #
 ```
 
-## remove sample application
+### Remove sample application
+
+To remove the sample application, simply delete the namespace. This will also clean up the LVM logical volumes.
+
 ```console
 # kubectl delete namespace node-red
+namespace "node-red" deleted
+
+# lvs
+#
 ```
