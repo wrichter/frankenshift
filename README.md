@@ -7,7 +7,7 @@ Fedora IoT 38. It can announce routes via mDNS so hosting applications in an mDN
 
 ## Motivation
 
-My [home automation setup](https://github.com/wrichter/homeautomation) is based on an [older install of MicroShift on a Raspberry Pi 4](https://www.opensourcerers.org/2022/01/17/openshift-on-raspberry-pi-4/). This hardware is close to ideal because it combines a small form factor which makes it fit my switchbox with GPIO ports that allow me to integrate additional sensors.
+My [home automation setup](https://github.com/wrichter/homeautomation) is based on an [older install of MicroShift on a Raspberry Pi 4](https://www.opensourcerers.org/2022/01/17/openshift-on-raspberry-pi-4/). This hardware is close to ideal because it combines a small form factor which makes it fit my breaker box with GPIO ports that allow me to integrate additional sensors.
 
 Recently I managed to fry the SDCard through repeated short circuits (yes, I was testing something). This is where the idea of a declarative configuration shone: after setting up MicroShift again based on the old instructions, I was able to deploy all applications & their configurations from my repository. I was also able to mount the old SDCard filesystem in a read-only fashion and copy all data over, effectively re-creating the complete state of my setup.
 
