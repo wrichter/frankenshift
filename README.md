@@ -187,7 +187,7 @@ Deployments:
 
 ## Configure and start MicroShift
 
-At this point, we pretty much just have to follow the [MicroShift installation instructions](https://access.redhat.com/documentation/en-us/red_hat_build_of_microshift/4.14/html/installing/microshift-install-rpm#installing-microshift-from-rpm-package_microshift-install-rpm) from step 3 onwards.
+At this point, we pretty much just have to follow the [MicroShift installation instructions](https://access.redhat.com/documentation/en-us/red_hat_build_of_microshift/4.14/html/installing/microshift-install-rpm#installing-microshift-from-rpm-package_microshift-install-rpm) from step 3 onwards. There's a small caveat as we have to add a compatibility fix for Fedora's systemd-resolved.
 
 ### Download OpenShift Pull Secret & configure cri-o
 
@@ -219,13 +219,46 @@ success
 success
 ```
 
-### Enable and start MicroShift
-
-Now you can enable and start MicroShift. Give it some time to pull all required pods & start up properly.
-In case startup fails, disable MicroShift before rebooting - otherwise the greenboot health checks will identify a problem on the next reboot, and will roll back to the previously known good configuration.
+### Enable MicroShift
+Now you can enable (but not yet start) MicroShift. This will also cause the greenboot health checks to run at system startup. In case the microshift service fails, disable MicroShift before rebooting - otherwise the greenboot health checks will identify a problem on the next reboot, and will roll back to the previously known good configuration.
 
 ```console
-# systemctl enable --now microshift
+# systemctl enable microshift.service
+``` 
+
+
+### Add systemd-resolved-fix
+
+On start, MicroShift copies the resolv.conf DNS configuration into the CoreDNS configmap. 
+On a system like Fedora IoT 38 this causes the wrong resolv.conf location to be present 
+in the CoreDNS config map, causing the pod to crashloop. To work around this, we will create 
+systemd unit that patches the configmap after microshift has started.
+
+```console
+# cat >/etc/systemd/system/microshift-on-fedora.service <<EOF
+[Unit]
+Description=MicroShift 4.14 with systemd-resolved-fix
+After=microshift.service
+BindsTo=microshift.service
+
+[Service]
+ExecStart=/bin/bash -c "kubectl --kubeconfig /var/lib/microshift/resources/kubeadmin/kubeconfig get cm dns-default -n openshift-dns -o yaml | sed 's_/run/systemd/resolve/resolv.conf_/etc/resolv.conf_' | kubectl --kubeconfig /var/lib/microshift/resources/kubeadmin/kubeconfig apply -f -"
+Type=oneshot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# systemctl enable microshift-on-fedora.service
+```
+
+### Start MicroShift
+
+Now you can start MicroShift (with the fix). Give it some time to pull all required pods & start up properly.
+
+```console
+# systemctl start microshift-on-fedora
 
 # systemctl status microshift
 ● microshift.service - MicroShift
