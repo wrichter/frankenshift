@@ -220,16 +220,15 @@ success
 ```
 
 ### Enable MicroShift
-Now you can enable (but not yet start) MicroShift. This will also cause the greenboot health checks to run at system startup. In case the microshift service fails, disable MicroShift before rebooting - otherwise the greenboot health checks will identify a problem on the next reboot, and will roll back to the previously known good configuration.
+Enable (but not yet start) MicroShift. This will also cause the greenboot health checks to run at system startup. In case the microshift service fails, disable MicroShift before rebooting - otherwise the greenboot health checks will identify a problem on the next reboot, and will roll back to the previously known good configuration.
 
 ```console
 # systemctl enable microshift.service
 ``` 
 
+### Add and enable systemd-resolved-fix
 
-### Add systemd-resolved-fix
-
-On start, MicroShift copies the resolv.conf DNS configuration into the CoreDNS configmap. 
+On start, MicroShift copies the resolv.conf DNS configuration file location into the CoreDNS configmap. 
 On a system like Fedora IoT 38 this causes the wrong resolv.conf location to be present 
 in the CoreDNS config map, causing the pod to crashloop. To work around this, we will create 
 systemd unit that patches the configmap after microshift has started.
@@ -253,9 +252,10 @@ EOF
 # systemctl enable microshift-on-fedora.service
 ```
 
-### Start MicroShift
+### Enable & start MicroShift
 
-Now you can start MicroShift (with the fix). Give it some time to pull all required pods & start up properly.
+Now you can start MicroShift (with the fix). Please use the microshift-on-fedora unit to start and stop microshift, it will in turn start and stop the underlying microshift service. You can  query the status of microshift using the regular microshift.service unit.
+Give it some time to pull all required pods & start up properly.
 
 ```console
 # systemctl start microshift-on-fedora
