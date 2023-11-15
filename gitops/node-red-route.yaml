@@ -1,0 +1,13 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: node-red
+spec:
+  host: nodered.local
+  port:
+    targetPort: ui
+  to:
+    kind: Service
+    name: node-red
+    weight: 100
+  wildcardPolicy: None

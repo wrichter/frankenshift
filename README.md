@@ -252,7 +252,7 @@ EOF
 # systemctl enable microshift-on-fedora.service
 ```
 
-### Enable & start MicroShift
+### Start MicroShift
 
 Now you can start MicroShift (with the fix). Please use the microshift-on-fedora unit to start and stop microshift, it will in turn start and stop the underlying microshift service. You can  query the status of microshift using the regular microshift.service unit.
 Give it some time to pull all required pods & start up properly.
@@ -482,3 +482,10 @@ namespace "node-red" deleted
 # lvs
 #
 ```
+
+## Summary
+
+This guide showed how to set up MicroShift 4.14 (and beyond?) on a Raspberry Pi 4 using Fedora IoT 38 – a totally unsupported setup. This is mostly achieved by replacing some Fedora packages with those coming from Red Hat Enterprise Linux and adding the remaining packages to the image-based Fedora deployment and following the MicroShift installation instructions.
+
+
+Fedora 38 uses systemd-resolved while Red Hat Enterprise Linux doesn’t – this triggers a code path in MicroShift which causes a wrong configuration to be stored for the CoreDNS pod. This is why we need a workaround systemd unit that reverses the configuration after MicroShift startup.
