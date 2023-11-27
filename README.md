@@ -1,7 +1,7 @@
 # MicroShift on Fedora IoT 38
 
 This guide will show you how to run the newly GA'ed bits of MicroShift on a Raspberry Pi 4 using 
-Fedora IoT 38. It can announce routes via mDNS so hosting applications in an mDNS aware LAN is a breeze.
+Fedora IoT 38 or 39. It can announce routes via mDNS so hosting applications in an mDNS aware LAN is a breeze.
 
 **THIS IS COMPLETELY UNSUPPORTED. DON'T EVEN THINK OF RED HAT SUPPORT WHEN YOU FOLLOW THESE INSTRUCTIONS.**
 
@@ -11,7 +11,7 @@ My [home automation setup](https://github.com/wrichter/homeautomation) is based 
 
 Recently I managed to fry the SDCard through repeated short circuits (yes, I was testing something). This is where the idea of a declarative configuration shone: after setting up MicroShift again based on the old instructions, I was able to deploy all applications & their configurations from my repository. I was also able to mount the old SDCard filesystem in a read-only fashion and copy all data over, effectively re-creating the complete state of my setup.
 
-At the same time it felt silly to continue to run old versions when a GA'ed version of MicroShift is now available. This guide shows how to set up this more modern version on Fedora IoT 38.
+At the same time it felt silly to continue to run old versions when a GA'ed version of MicroShift is now available. This guide shows how to set up this more modern version on Fedora IoT 38. The same approach also works on Fedora IoT 39.
 
 ## Prerequisites
 
@@ -48,7 +48,7 @@ on the Raspberry Pi by copying the download links and using `curl -O`.
 * NetworkManager-wwan
 * NetworkManager-wifi
 
-The `microshift-*`, `cri*`, `crun`, `openvswitch*` packages make up MicroShift. They pull in `NetworkManager*` as dependency, which in turn requires the `jansson` libarary. `openshift-clients` provides the CLI tools to interface with MicroShift.
+The `microshift-*`, `cri*`, `crun`, `openvswitch*` packages make up MicroShift. They pull in `NetworkManager*` as dependency, which in turn requires the `jansson` library. `openshift-clients` provides the CLI tools to interface with MicroShift. Make sure you download the RHEL9 version of all packages (with *el9* in the name) - some are available with a higher version number for RHEL8 which then fail to install.
 
 
 ## Prepare Fedora IoT and install MicroShift rpms
