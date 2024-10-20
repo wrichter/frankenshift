@@ -489,3 +489,24 @@ This guide showed how to set up MicroShift 4.14 (and beyond?) on a Raspberry Pi 
 
 
 Fedora 38 uses systemd-resolved while Red Hat Enterprise Linux doesn’t – this triggers a code path in MicroShift which causes a wrong configuration to be stored for the CoreDNS pod. This is why we need a workaround systemd unit that reverses the configuration after MicroShift startup.
+
+
+## Fix after 1 year - the certificate expires
+
+systemctl stop microshift
+
+cd /var/lib/containers/storage/volumes/microshift-data/_data 
+
+mv certs certs.old
+mv resources resources.old
+
+systemctl start microshift
+
+(certs + resources werden wieder angelegt)
+
+mv ~/.kube/config ~/.kube/config.old
+
+cp ./resources/kubeadmin/kubeconfig ~/.kube/config
+
+export NEWCA=$(base64 -w 0 certs/ca-bundle/ca-bundle.crt)
+for API in `oc get apiservices | grep default/openshift | cut -f1 -d" "`; do oc patch apiservices $API -p "{\"spec\":{\"caBundle\":\"${NEWCA}\"}}"; done
